@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Recursive Execution Harness Lab
+title: Puff — Recursive Execution Harness Lab
 description: A research harness for comparing long-context agents against recursive evidence-based execution
 ---
 
@@ -135,7 +135,7 @@ description: A research harness for comparing long-context agents against recurs
 <div class="container">
     <header>
         <div class="badge">v0.1.0 · MIT</div>
-        <h1>Recursive Execution Harness Lab</h1>
+        <h1>Puff <span style="font-weight:400;color:var(--text-muted);font-size:1.4rem;">· Recursive Execution Harness Lab</span></h1>
         <p style="color: var(--text-muted); max-width: 650px;">
             A measurement instrument comparing two agent architectures on multi-document research synthesis:
             monolithic long-context prompts vs. recursive, evidence-based execution.

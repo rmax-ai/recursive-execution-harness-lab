@@ -1,4 +1,4 @@
-title: Recursive Execution Harness Lab
+title: Puff — Recursive Execution Harness Lab
 description: A research harness for comparing long-context agents against recursive evidence-based execution
 remote_theme: pages-themes/minimal@v0.2.0
 plugins:
