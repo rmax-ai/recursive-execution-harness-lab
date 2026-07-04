@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Recursive Execution Harness Lab
 description: A CLI-first Python research instrument comparing agent architectures on multi-document synthesis tasks.
 ---
