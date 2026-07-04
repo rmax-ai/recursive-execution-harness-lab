@@ -1,0 +1,22 @@
+id: recursive_execution_article
+title: Recursive Execution for Long-Running Agents
+question: >
+  Write a technical synthesis explaining why long-running AI agents need
+  recursive execution, externalized state, and verification gates rather than
+  relying only on larger context windows.
+expected_output_type: article
+success_criteria:
+  - Explain failure modes of long-context agent execution
+  - Explain recursive execution using references, bounded workers, and evidence stores
+  - Discuss durable execution and policy gates
+  - Include counterarguments and limitations
+  - Ground major claims in the provided documents
+constraints:
+  - Do not make unsupported vendor claims
+  - Distinguish evidence from speculation
+  - Prefer primary sources when present
+evaluation_questions:
+  - Are major claims supported by source evidence?
+  - Does the answer avoid overgeneralization?
+  - Does it explain trade-offs?
+  - Does it identify remaining failure modes?
