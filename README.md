@@ -1,4 +1,4 @@
-# Recursive Execution Harness Lab <small>(Puff)</small>
+# Recursive Execution Harness Lab
 
 A research harness for comparing long-context agent execution against recursive, reference-based execution on multi-document research synthesis tasks.
 
