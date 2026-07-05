@@ -136,3 +136,107 @@ def test_run_worker_handles_missing_doc_refs_gracefully(
     assert result.assigned_refs == ["doc_9999"]
     assert result.findings == []
     assert result.open_questions == ["No assigned documents were available."]
+
+
+def test_run_worker_rejects_unassigned_source_refs(
+    sample_task, tmp_path: Path
+) -> None:
+    doc_path = tmp_path / "doc1.md"
+    doc_path.write_text("Alpha fact.", encoding="utf-8")
+    doc = DocumentRef(
+        id="doc_0001",
+        source_path=str(doc_path),
+        title="Doc1",
+        content_hash="hash1",
+        char_count=len("Alpha fact."),
+    )
+    item = PlanItem(
+        id="item_003",
+        subquestion="What fact is present?",
+        assigned_refs=["doc_0001"],
+        expected_evidence=["The stated fact"],
+    )
+    provider = MockProvider(
+        [
+            json.dumps(
+                {
+                    "findings": [
+                        {
+                            "source_ref": "doc_9999",
+                            "quote_or_excerpt": "Alpha fact.",
+                            "summary": "Invalid source ref.",
+                            "claim_supported": "Alpha fact is present.",
+                            "confidence": "high",
+                        }
+                    ],
+                    "open_questions": [],
+                    "failures": [],
+                }
+            )
+        ]
+    )
+    trace = TraceWriter(run_id="run_001", path=tmp_path / "trace.jsonl")
+
+    result = run_worker(
+        task=sample_task,
+        item=item,
+        docs_by_id={"doc_0001": doc},
+        provider=provider,
+        model="gpt-test",
+        trace=trace,
+    )
+
+    assert result.findings == []
+    assert "was not assigned" in result.failures[0]
+
+
+def test_run_worker_rejects_excerpt_missing_from_retrieved_slices(
+    sample_task, tmp_path: Path
+) -> None:
+    doc_path = tmp_path / "doc1.md"
+    doc_path.write_text("Alpha fact.", encoding="utf-8")
+    doc = DocumentRef(
+        id="doc_0001",
+        source_path=str(doc_path),
+        title="Doc1",
+        content_hash="hash1",
+        char_count=len("Alpha fact."),
+    )
+    item = PlanItem(
+        id="item_004",
+        subquestion="What fact is present?",
+        assigned_refs=["doc_0001"],
+        expected_evidence=["The stated fact"],
+    )
+    provider = MockProvider(
+        [
+            json.dumps(
+                {
+                    "findings": [
+                        {
+                            "source_ref": "doc_0001",
+                            "quote_or_excerpt": "Beta fact.",
+                            "summary": "Excerpt does not exist.",
+                            "claim_supported": "Beta fact is present.",
+                            "confidence": "high",
+                        }
+                    ],
+                    "open_questions": [],
+                    "failures": [],
+                }
+            )
+        ]
+    )
+    trace = TraceWriter(run_id="run_001", path=tmp_path / "trace.jsonl")
+
+    result = run_worker(
+        task=sample_task,
+        item=item,
+        docs_by_id={"doc_0001": doc},
+        provider=provider,
+        model="gpt-test",
+        trace=trace,
+    )
+
+    assert result.findings == []
+    assert "was not found in retrieved source slices" in result.failures[0]

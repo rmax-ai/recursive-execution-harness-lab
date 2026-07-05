@@ -6,7 +6,7 @@ from .models import DocumentRef, EvidenceCard, TaskSpec, WorkerResult
 from .planner import create_plan
 from .policy import apply_policy_gate
 from .providers import LLMProvider
-from .synthesizer import synthesize_answer
+from .synthesizer import revise_answer, synthesize_answer
 from .trace import TraceWriter
 from .verifier import verify_answer
 from .worker import run_worker
@@ -100,12 +100,31 @@ def run_recursive(
         trace=trace,
     )
 
+    if verification.verdict != "pass":
+        final_answer = revise_answer(
+            task=task,
+            evidence_cards=evidence_cards,
+            final_answer=final_answer,
+            verification=verification,
+            provider=provider,
+            model=model,
+            out_dir=out_dir,
+            trace=trace,
+        )
+        verification = verify_answer(
+            final_answer=final_answer,
+            evidence_cards=evidence_cards,
+            source_documents=docs,
+            provider=provider,
+            model=verifier_model,
+            out_dir=out_dir,
+            trace=trace,
+        )
+
     policy_decision = apply_policy_gate(
         task=task,
         final_answer=final_answer,
         verification=verification,
-        provider=provider,
-        model=verifier_model,
         out_dir=out_dir,
         trace=trace,
     )

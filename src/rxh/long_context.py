@@ -6,6 +6,7 @@ from .ingest import load_document_text
 from .models import DocumentRef, Plan, TaskSpec
 from .policy import apply_policy_gate
 from .providers import LLMProvider
+from .synthesizer import revise_answer
 from .trace import TraceWriter
 from .verifier import verify_answer
 
@@ -124,8 +125,9 @@ def run_long_context(
     final_path.parent.mkdir(parents=True, exist_ok=True)
     final_path.write_text(response.text, encoding="utf-8")
 
+    final_answer = response.text
     verification = verify_answer(
-        final_answer=response.text,
+        final_answer=final_answer,
         evidence_cards=[],
         source_documents=docs,
         provider=provider,
@@ -134,14 +136,33 @@ def run_long_context(
         trace=trace,
     )
 
+    if verification.verdict != "pass":
+        final_answer = revise_answer(
+            task=task,
+            evidence_cards=[],
+            final_answer=final_answer,
+            verification=verification,
+            provider=provider,
+            model=model,
+            out_dir=out_dir,
+            trace=trace,
+        )
+        verification = verify_answer(
+            final_answer=final_answer,
+            evidence_cards=[],
+            source_documents=docs,
+            provider=provider,
+            model=verifier_model,
+            out_dir=out_dir,
+            trace=trace,
+        )
+
     apply_policy_gate(
         task=task,
-        final_answer=response.text,
+        final_answer=final_answer,
         verification=verification,
-        provider=provider,
-        model=verifier_model,
         out_dir=out_dir,
         trace=trace,
     )
 
-    return response.text
+    return final_answer

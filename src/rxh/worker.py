@@ -81,6 +81,60 @@ def select_source_slices(
     return selected
 
 
+def normalize_excerpt(text: str) -> str:
+    return " ".join(text.split()).strip().lower()
+
+
+def validate_findings(
+    findings: list[dict],
+    item: PlanItem,
+    source_slices: list[tuple[DocumentRef, int, str]],
+) -> tuple[list[EvidenceCard], list[str]]:
+    allowed_refs = set(item.assigned_refs)
+    normalized_slices_by_ref: dict[str, list[str]] = {}
+    for doc, _, chunk in source_slices:
+        normalized_slices_by_ref.setdefault(doc.id, []).append(normalize_excerpt(chunk))
+
+    validated: list[EvidenceCard] = []
+    failures: list[str] = []
+    worker_id = f"worker_{item.id}"
+
+    for index, finding in enumerate(findings):
+        source_ref = finding["source_ref"]
+        excerpt = finding["quote_or_excerpt"]
+
+        if source_ref not in allowed_refs:
+            failures.append(
+                f"Rejected finding {index}: source_ref {source_ref} was not assigned."
+            )
+            continue
+
+        normalized_excerpt = normalize_excerpt(excerpt)
+        source_chunks = normalized_slices_by_ref.get(source_ref, [])
+        if normalized_excerpt and not any(
+            normalized_excerpt in chunk for chunk in source_chunks
+        ):
+            failures.append(
+                f"Rejected finding {index}: excerpt for {source_ref} "
+                "was not found in retrieved source slices."
+            )
+            continue
+
+        validated.append(
+            EvidenceCard(
+                id=f"ev_{item.id}_{index:03d}",
+                worker_id=worker_id,
+                source_ref=source_ref,
+                quote_or_excerpt=excerpt,
+                summary=finding["summary"],
+                claim_supported=finding["claim_supported"],
+                confidence=finding.get("confidence", "medium"),
+            )
+        )
+
+    return validated, failures
+
+
 def worker_prompt(
     task: TaskSpec,
     item: PlanItem,
@@ -181,18 +235,9 @@ def run_worker(
     )
 
     raw = extract_json_object(response.text)
-    findings = [
-        EvidenceCard(
-            id=f"ev_{item.id}_{index:03d}",
-            worker_id=worker_id,
-            source_ref=finding["source_ref"],
-            quote_or_excerpt=finding["quote_or_excerpt"],
-            summary=finding["summary"],
-            claim_supported=finding["claim_supported"],
-            confidence=finding.get("confidence", "medium"),
-        )
-        for index, finding in enumerate(raw.get("findings", []))
-    ]
+    findings, validation_failures = validate_findings(
+        raw.get("findings", []), item, source_slices
+    )
 
     result = WorkerResult(
         worker_id=worker_id,
@@ -201,7 +246,7 @@ def run_worker(
         assigned_refs=item.assigned_refs,
         findings=findings,
         open_questions=raw.get("open_questions", []),
-        failures=raw.get("failures", []),
+        failures=[*raw.get("failures", []), *validation_failures],
     )
 
     trace.emit(

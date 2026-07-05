@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rxh.models import EvidenceCard, Plan, PlanItem
+from rxh.models import ClaimCheck, EvidenceCard, Plan, PlanItem, VerificationResult
 from rxh.providers import MockProvider
-from rxh.synthesizer import synthesis_prompt, synthesize_answer
+from rxh.synthesizer import (
+    revise_answer,
+    revision_prompt,
+    synthesis_prompt,
+    synthesize_answer,
+)
 from rxh.trace import TraceWriter
 
 
@@ -88,3 +93,61 @@ def test_synthesize_answer_calls_provider_writes_file_and_emits_trace_events(
     assert len(lines) == 2
     assert "synthesis_started" in lines[0]
     assert "synthesis_completed" in lines[1]
+
+
+def test_revision_prompt_includes_verifier_feedback(sample_task) -> None:
+    verification = VerificationResult(
+        verdict="partial",
+        checks=[
+            ClaimCheck(
+                claim="Unsupported claim",
+                supported=False,
+                evidence_ids=[],
+                issue="No support found.",
+            )
+        ],
+        unsupported_claims=["Unsupported claim"],
+        source_attribution_errors=[],
+    )
+
+    prompt = revision_prompt(
+        task=sample_task,
+        evidence_cards=[],
+        final_answer="Unsupported claim",
+        verification=verification,
+    )
+
+    assert "Verification verdict:" in prompt
+    assert "Unsupported claim" in prompt
+    assert "Remove or rewrite unsupported claims." in prompt
+
+
+def test_revise_answer_writes_final_answer_and_emits_trace_events(
+    sample_task, tmp_path: Path
+) -> None:
+    provider = MockProvider(["# Final Answer\n\nRevised supported answer."])
+    verification = VerificationResult(
+        verdict="partial",
+        checks=[],
+        unsupported_claims=["Unsupported claim"],
+        source_attribution_errors=[],
+    )
+    trace_path = tmp_path / "trace.jsonl"
+    trace = TraceWriter(run_id="run_001", path=trace_path)
+
+    result = revise_answer(
+        task=sample_task,
+        evidence_cards=[],
+        final_answer="Unsupported claim",
+        verification=verification,
+        provider=provider,
+        model="gpt-test",
+        out_dir=tmp_path,
+        trace=trace,
+    )
+
+    assert result == "# Final Answer\n\nRevised supported answer."
+    assert (tmp_path / "final_answer.md").read_text(encoding="utf-8") == result
+    lines = trace_path.read_text(encoding="utf-8").splitlines()
+    assert "revision_started" in lines[0]
+    assert "revision_completed" in lines[1]

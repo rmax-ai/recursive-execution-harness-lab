@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .json_utils import extract_json_object
 from .models import PolicyDecision, TaskSpec, VerificationResult
-from .providers import LLMProvider
 from .trace import TraceWriter
 
 
@@ -72,8 +70,6 @@ def apply_policy_gate(
     task: TaskSpec,
     final_answer: str,
     verification: VerificationResult,
-    provider: LLMProvider,
-    model: str,
     out_dir: Path,
     trace: TraceWriter,
 ) -> PolicyDecision:
@@ -85,27 +81,47 @@ def apply_policy_gate(
         metadata={"verification_verdict": verification.verdict},
     )
 
-    response = provider.complete(
-        model=model,
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a strict runtime policy gate. Return JSON only.",
-            },
-            {
-                "role": "user",
-                "content": policy_prompt(
-                    task=task,
-                    final_answer=final_answer,
-                    verification=verification,
-                ),
-            },
-        ],
-        temperature=0.0,
+    blocked_claims = list(
+        dict.fromkeys(
+            [
+                *verification.unsupported_claims,
+                *verification.source_attribution_errors,
+            ]
+        )
     )
+    required_changes: list[str] = []
+    rationale_parts: list[str] = []
 
-    raw = extract_json_object(response.text)
-    decision = PolicyDecision.model_validate(raw)
+    if verification.verdict == "fail":
+        decision_name = "deny"
+        rationale_parts.append("Verifier returned fail.")
+    elif verification.source_attribution_errors:
+        decision_name = "revise"
+        rationale_parts.append("Source attribution errors must be corrected.")
+    elif verification.unsupported_claims:
+        decision_name = "revise"
+        rationale_parts.append("Unsupported claims must be removed or revised.")
+    else:
+        decision_name = "allow"
+        rationale_parts.append("Verifier found no blocking issues.")
+
+    if verification.unsupported_claims:
+        required_changes.append("Remove or repair unsupported claims.")
+    if verification.source_attribution_errors:
+        required_changes.append("Correct source attribution errors.")
+
+    if any(
+        constraint.lower() in final_answer.lower()
+        for constraint in task.constraints
+    ):
+        rationale_parts.append("Final answer repeats task constraints verbatim.")
+
+    decision = PolicyDecision(
+        decision=decision_name,
+        rationale=" ".join(rationale_parts),
+        required_changes=required_changes,
+        blocked_claims=blocked_claims,
+    )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "policy_decision.json"
@@ -117,7 +133,6 @@ def apply_policy_gate(
         actor="policy_gate",
         input_refs=["final_answer.md", verification.id],
         output_refs=["policy_decision.json"],
-        token_usage={"input": response.input_tokens, "output": response.output_tokens},
         metadata={
             "decision": decision.decision,
             "blocked_claims": len(decision.blocked_claims),

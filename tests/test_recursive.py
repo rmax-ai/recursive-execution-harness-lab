@@ -90,6 +90,37 @@ def test_run_recursive_with_mock_provider_completes_full_pipeline(
             ),
             json.dumps(
                 {
+                    "verdict": "partial",
+                    "checks": [
+                        {
+                            "claim": "Alpha is supported.",
+                            "supported": True,
+                            "evidence_ids": ["ev_item_001_000"],
+                            "issue": None,
+                        },
+                        {
+                            "claim": "Beta is supported.",
+                            "supported": True,
+                            "evidence_ids": ["ev_item_002_000"],
+                            "issue": None,
+                        },
+                        {
+                            "claim": "Beta is comprehensive.",
+                            "supported": False,
+                            "evidence_ids": [],
+                            "issue": "Overgeneralized.",
+                        },
+                    ],
+                    "unsupported_claims": ["Beta is comprehensive."],
+                    "source_attribution_errors": [],
+                }
+            ),
+            (
+                "# Final Answer\n\nAlpha is supported [ev_item_001_000]. "
+                "Beta is supported [ev_item_002_000]."
+            ),
+            json.dumps(
+                {
                     "verdict": "pass",
                     "checks": [
                         {
@@ -146,14 +177,15 @@ def test_run_recursive_with_mock_provider_completes_full_pipeline(
     assert any('"stage":"worker"' in line for line in trace_lines)
     assert any('"stage":"synthesis"' in line for line in trace_lines)
     assert any('"stage":"verification"' in line for line in trace_lines)
+    assert any('"stage":"revision"' in line for line in trace_lines)
     assert any('"stage":"policy"' in line for line in trace_lines)
     assert any('"stage":"run"' in line for line in trace_lines)
 
-    verifier_prompt = provider.calls[-1]["messages"][1]["content"]
-    assert "Verification verdict:" in verifier_prompt
     policy = json.loads((tmp_path / "policy_decision.json").read_text(encoding="utf-8"))
     assert policy["decision"] == "allow"
-    verification_prompt = provider.calls[-2]["messages"][1]["content"]
+    revision_prompt = provider.calls[-2]["messages"][1]["content"]
+    assert "Unsupported claims:" in revision_prompt
+    verification_prompt = provider.calls[-3]["messages"][1]["content"]
     assert "Source snippets:" in verification_prompt
     assert "Source: doc_0001" in verification_prompt
     assert "Source: doc_0002" in verification_prompt
