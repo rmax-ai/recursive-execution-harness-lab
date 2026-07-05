@@ -25,6 +25,8 @@ jobs:
         with:
           node-version: 24
       - uses: pnpm/action-setup@v6
+        with:
+          version: 11
       - run: pnpm install --frozen-lockfile
         working-directory: site
       - run: pnpm exec svelte-check --tsconfig ./tsconfig.json
