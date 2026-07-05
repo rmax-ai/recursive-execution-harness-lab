@@ -1,5 +1,5 @@
 export const PROJECT_VERSION = "v0.1.0";
-export const TEST_COUNT = 44;
+export const TEST_COUNT = 50;
 export const LICENSE = "MIT";
 export const REPO_URL = "https://github.com/rmax-ai/recursive-execution-harness-lab";
 export const DOCS_URL = "https://github.com/rmax-ai/recursive-execution-harness-lab/blob/main/docs/ARCHITECTURE.md";
@@ -59,21 +59,21 @@ export const REFERENCE = {
       insight:
         "Use for loops for 10,000 docs instead of 10,000 sequential tool calls",
       manifestation:
-        "Planner → sequential bounded workers → synthesizer pipeline",
+        "Planner → sequential bounded workers → synthesizer → verifier → optional revision",
     },
     {
       concept: "Verification Gates",
       insight:
         "LLM-as-judge on trajectories; detect unsupported claims",
       manifestation:
-        "Both baseline and recursive runs are verified against source snippets keyed by source_ref, with recursive runs also providing explicit evidence-to-source mappings",
+        "Both baseline and recursive runs are verified against source snippets keyed by source_ref, and failing answers get one revision pass before final policy",
     },
     {
       concept: "Runtime Policy Gates",
       insight:
         "Evaluate whether a verified answer is still safe to deliver",
       manifestation:
-        "Both modes write a post-verification policy_decision.json artifact and trace a distinct policy stage",
+        "Both modes write a post-verification policy_decision.json artifact, but the decision itself is deterministic code over verifier output",
     },
     {
       concept: "Continual Learning",
@@ -90,6 +90,7 @@ export const THREATS = [
   "The corpus may favor one architecture over another.",
   "Recursive execution uses more explicit scaffolding — prompt clarity may improve independently of architecture.",
   "The baseline may be disadvantaged if context limits force document truncation, even though both modes now use the same verifier step.",
+  "The revision loop is currently capped at one pass, so some fixable answers may still end in revise or deny.",
   "Results from research synthesis may not generalize to coding, customer support, or enterprise workflows.",
   "Token cost may vary by provider and caching strategy.",
   "Better long-context models may reduce the observed gap.",

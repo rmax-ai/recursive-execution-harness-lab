@@ -21,9 +21,20 @@ flowchart TD
     S --> G[Evidence Store]
     G --> H[Synthesizer]
     H --> I[Verifier]
-    I --> J[Policy Gate]
-    J --> K[Final Answer]
+    I --> J[Revision (if needed)]
+    J --> K[Verifier]
+    K --> L[Deterministic Policy Gate]
+    L --> M[Final Answer]
 ```
+
+## Current Execution Behavior
+
+- Recursive mode runs `planner -> bounded workers -> synthesizer -> verifier`.
+- When verification returns `partial` or `fail`, the harness performs one
+  revision pass and then re-verifies the revised answer.
+- Policy is deterministic code over verifier output, not another LLM call.
+- Worker findings are rejected when they cite unassigned document refs or quote
+  excerpts that do not appear in the retrieved source slices.
 
 ## Quickstart
 
@@ -68,8 +79,10 @@ docs/             — architecture docs
 3. Recursive execution uses more explicit scaffolding, which may improve prompt clarity independently of architecture.
 4. The baseline may be disadvantaged if context limits force document truncation, even though both modes now use the same verifier step.
 5. Results from research synthesis may not generalize to coding, customer support, or enterprise workflows.
-6. Token cost may vary by provider and caching strategy.
-7. Better long-context models may reduce the observed gap.
+6. The revision loop is currently capped at one pass, so some fixable answers
+   may still end in `revise` or `deny`.
+7. Token cost may vary by provider and caching strategy.
+8. Better long-context models may reduce the observed gap.
 
 ## Research Contribution Statement
 
@@ -93,9 +106,9 @@ Key concepts from the talk that directly inform this harness:
 | **Context Rot** | Models drop from ~80% → ~36% on information retrieval as context grows to 1M tokens (MRCR benchmark) | The `long-context` baseline mode measures a single-prompt workflow under a fixed budget; it does not prove degradation by itself |
 | **Reference-Indexed Execution** | Pass document IDs through the workflow instead of assigning the whole corpus to every step | Planner-assigned refs drive bounded source-slice retrieval, and `EvidenceCard.source_ref` preserves provenance back to the original document |
 | **Compaction Avoidance** | "Every time you end up with a compaction, the agent gets lost" | Recursive mode delegates to bounded workers; no compaction needed |
-| **Programmatic Control Flow** | Use `for` loops for 10,000 docs instead of 10,000 sequential tool calls | Planner → sequential bounded workers → synthesizer pipeline |
-| **Verification Gates** | LLM-as-judge on trajectories; detect unsupported claims | Both baseline and recursive runs are verified against source snippets keyed by `source_ref`, with recursive runs also providing explicit evidence-to-source mappings |
-| **Runtime Policy Gates** | Evaluate whether a verified answer is safe to deliver | Both modes now write a post-verification `policy_decision.json` artifact and trace a distinct policy stage |
+| **Programmatic Control Flow** | Use `for` loops for 10,000 docs instead of 10,000 sequential tool calls | Planner → sequential bounded workers → synthesizer → verifier → optional revision |
+| **Verification Gates** | LLM-as-judge on trajectories; detect unsupported claims | Both baseline and recursive runs are verified against source snippets keyed by `source_ref`, and failing answers get one revision pass before final policy |
+| **Runtime Policy Gates** | Evaluate whether a verified answer is safe to deliver | Both modes now write a post-verification `policy_decision.json` artifact, but the decision itself is deterministic code over verifier output |
 | **Continual Learning** | Harvest traces, feedback, train on harness | JSONL trace output captures every LLM call for future training loops |
 
 ## License
