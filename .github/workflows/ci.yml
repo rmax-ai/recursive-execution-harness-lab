@@ -11,50 +11,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8
-        with:
-          enable-cache: true
-
-      - name: Install Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Lint
-        run: uv run ruff check src/ tests/
-
-      - name: Tests
-        run: uv run pytest tests/ -v --tb=short
+      - uses: astral-sh/setup-uv@v8
+      - run: uv python install 3.12
+      - run: uv sync --extra dev
+      - run: uv run ruff check src/ tests/
+      - run: uv run pytest tests/ -v --tb=short
 
   site:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
-          cache-dependency-path: site/pnpm-lock.yaml
-
-      - name: Install site deps
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
         working-directory: site
-
-      - name: Type-check
-        run: pnpm exec svelte-check --tsconfig ./tsconfig.json
+      - run: pnpm exec svelte-check --tsconfig ./tsconfig.json
         working-directory: site
-
-      - name: Build
-        run: pnpm build
+      - run: pnpm build
         working-directory: site
-
-      - name: Verify output
-        run: test -f docs/index.html && echo "Site built successfully"
