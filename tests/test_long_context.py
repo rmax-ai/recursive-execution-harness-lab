@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from rxh.long_context import build_long_context_prompt, run_long_context
@@ -65,7 +66,19 @@ def test_run_long_context_calls_provider_and_writes_final_answer(
             char_count=len("Document body"),
         )
     ]
-    provider = MockProvider(["# Baseline Answer\n\nAnswer from long context."])
+    provider = MockProvider(
+        [
+            "# Baseline Answer\n\nAnswer from long context.",
+            json.dumps(
+                {
+                    "verdict": "pass",
+                    "checks": [],
+                    "unsupported_claims": [],
+                    "source_attribution_errors": [],
+                }
+            ),
+        ]
+    )
     trace = TraceWriter(run_id="run_001", path=tmp_path / "trace.jsonl")
 
     result = run_long_context(
@@ -74,10 +87,31 @@ def test_run_long_context_calls_provider_and_writes_final_answer(
         docs=docs,
         provider=provider,
         model="gpt-test",
+        verifier_model="gpt-verify",
         out_dir=tmp_path,
         trace=trace,
     )
 
     assert result == "# Baseline Answer\n\nAnswer from long context."
     assert (tmp_path / "final_answer.md").read_text(encoding="utf-8") == result
-    assert len(provider.calls) == 1
+    assert (tmp_path / "plan.json").exists()
+    assert (tmp_path / "worker_results.jsonl").read_text(encoding="utf-8") == ""
+    assert (tmp_path / "evidence_cards.jsonl").read_text(encoding="utf-8") == ""
+
+    verification = json.loads(
+        (tmp_path / "verification.json").read_text(encoding="utf-8")
+    )
+    assert verification["verdict"] == "pass"
+
+    plan = json.loads((tmp_path / "plan.json").read_text(encoding="utf-8"))
+    assert plan["items"] == []
+    assert "Long-context baseline" in plan["strategy"]
+
+    trace_lines = (tmp_path / "trace.jsonl").read_text(encoding="utf-8").splitlines()
+    assert any('"stage":"verification"' in line for line in trace_lines)
+    assert len(provider.calls) == 2
+    assert provider.calls[1]["model"] == "gpt-verify"
+    verifier_prompt = provider.calls[1]["messages"][1]["content"]
+    assert "Source snippets:" in verifier_prompt
+    assert "Source: doc_0001" in verifier_prompt
+    assert "Excerpt: Document body" in verifier_prompt

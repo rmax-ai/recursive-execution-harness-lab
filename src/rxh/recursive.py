@@ -92,6 +92,7 @@ def run_recursive(
     verify_answer(
         final_answer=final_answer,
         evidence_cards=evidence_cards,
+        source_documents=docs,
         provider=provider,
         model=verifier_model,
         out_dir=out_dir,

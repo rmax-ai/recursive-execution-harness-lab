@@ -9,17 +9,22 @@
 cd recursive-execution-harness-lab
 uv sync --extra dev
 
-rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
+uv run rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
   --corpus benchmarks/research_synthesis/corpora/sample \
   --mode long-context --model gpt-5.5-thinking --out runs/baseline
 
-rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
+uv run rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
   --corpus benchmarks/research_synthesis/corpora/sample \
   --mode recursive --model gpt-5.5-thinking --out runs/recursive
 
-rxh compare runs/baseline runs/recursive</code>
+uv run rxh compare runs/baseline runs/recursive</code>
 </pre>
 
-<p class="mt-4 font-mono text-sm text-slate-500">
+<p class="mt-4 text-sm text-slate-500">
+  If <code class="font-mono text-slate-400">uv</code> is unavailable on PATH after setup, use
+  <code class="font-mono text-slate-400">.venv/bin/rxh</code> in place of <code class="font-mono text-slate-400">uv run rxh</code>.
+</p>
+
+<p class="mt-3 font-mono text-sm text-slate-500">
   <strong class="text-slate-400">Stack:</strong> {STACK.join(" · ")}
 </p>

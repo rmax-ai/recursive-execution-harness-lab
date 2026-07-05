@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from .ingest import load_document_text
-from .models import DocumentRef, TaskSpec
+from .models import DocumentRef, Plan, TaskSpec
 from .providers import LLMProvider
 from .trace import TraceWriter
+from .verifier import verify_answer
 
 
 def build_long_context_prompt(
@@ -48,6 +49,22 @@ Return a complete answer with:
 """.strip()
 
 
+def write_baseline_artifacts(task: TaskSpec, out_dir: Path) -> None:
+    """Write empty baseline artifacts so both modes share the same output shape."""
+    plan = Plan(
+        strategy="Long-context baseline: answer in one prompt without decomposition.",
+        items=[],
+        verification_strategy=(
+            "Verify the single baseline answer against the original task and corpus."
+        ),
+    )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "plan.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+    (out_dir / "worker_results.jsonl").write_text("", encoding="utf-8")
+    (out_dir / "evidence_cards.jsonl").write_text("", encoding="utf-8")
+
+
 def run_long_context(
     *,
     run_id: str,
@@ -55,6 +72,7 @@ def run_long_context(
     docs: list[DocumentRef],
     provider: LLMProvider,
     model: str,
+    verifier_model: str,
     out_dir: Path,
     trace: TraceWriter,
 ) -> str:
@@ -70,6 +88,7 @@ def run_long_context(
         metadata={"task_id": task.id},
     )
     prompt = build_long_context_prompt(task, docs)
+    write_baseline_artifacts(task, out_dir)
     trace.emit(
         stage="baseline",
         event_type="prompt_built",
@@ -102,5 +121,15 @@ def run_long_context(
     final_path = out_dir / "final_answer.md"
     final_path.parent.mkdir(parents=True, exist_ok=True)
     final_path.write_text(response.text, encoding="utf-8")
+
+    verify_answer(
+        final_answer=response.text,
+        evidence_cards=[],
+        source_documents=docs,
+        provider=provider,
+        model=verifier_model,
+        out_dir=out_dir,
+        trace=trace,
+    )
 
     return response.text

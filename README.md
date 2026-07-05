@@ -11,17 +11,16 @@ When does recursive, reference-based execution outperform naive long-context pro
 ```mermaid
 flowchart TD
     A[Task Spec] --> B[Corpus Ingestion]
-    B --> C[Reference Store]
+    B --> C[Document Refs]
     C --> D[Planner]
     D --> E[Plan Items]
-    E --> F1[Evidence Worker 1]
-    E --> F2[Evidence Worker 2]
+    E --> F1[Bounded Worker 1]
+    E --> F2[Bounded Worker 2]
     F1 --> G[Evidence Store]
     F2 --> G
     G --> H[Synthesizer]
     H --> I[Verifier]
-    I --> J[Policy Gate]
-    J --> K[Final Answer]
+    I --> K[Final Answer]
 ```
 
 ## Quickstart
@@ -31,6 +30,8 @@ flowchart TD
 git clone https://github.com/rmax-ai/recursive-execution-harness-lab
 cd recursive-execution-harness-lab
 uv sync --extra dev
+
+# If `uv` is unavailable on PATH after setup, use `.venv/bin/rxh` instead of `uv run rxh`.
 
 # Run baseline (defaults to gpt-5.4-mini)
 uv run rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
@@ -63,7 +64,7 @@ docs/             — architecture docs
 1. The verifier is model-based and may share blind spots with the generator.
 2. The corpus may favor one architecture over another.
 3. Recursive execution uses more explicit scaffolding, which may improve prompt clarity independently of architecture.
-4. The baseline may be disadvantaged if context limits force document truncation.
+4. The baseline may be disadvantaged if context limits force document truncation, even though both modes now use the same verifier step.
 5. Results from research synthesis may not generalize to coding, customer support, or enterprise workflows.
 6. Token cost may vary by provider and caching strategy.
 7. Better long-context models may reduce the observed gap.
@@ -73,7 +74,7 @@ docs/             — architecture docs
 This project does not propose a new foundation model or a new agent framework.
 It proposes a measurement harness for an architectural question:
 When should long-running agents rely on larger context, and when should they
-externalize state into recursive execution, evidence stores, and verification gates?
+externalize state into recursive execution, evidence stores, and explicit verification?
 
 ## Inspiration & References
 
@@ -86,14 +87,13 @@ Key concepts from the talk that directly inform this harness:
 
 | Concept | Talk Insight | Manifestation in This Project |
 |---|---|---|
-| **Context Rot** | Models drop from ~80% → ~36% on information retrieval as context grows to 1M tokens (MRCR benchmark) | The `long-context` baseline mode demonstrates this degradation |
-| **Reference-Based Execution** | Pass variables/handles, not raw text — like Jupyter notebook EDA | `ReferenceStore` + `EvidenceCard.source_ref` — workers fetch by reference |
+| **Context Rot** | Models drop from ~80% → ~36% on information retrieval as context grows to 1M tokens (MRCR benchmark) | The `long-context` baseline mode measures a single-prompt workflow under a fixed budget; it does not prove degradation by itself |
+| **Reference-Based Execution** | Pass variables/handles, not raw text — like Jupyter notebook EDA | Filesystem-backed document refs plus `EvidenceCard.source_ref` let recursive workers operate on assigned source IDs |
 | **Compaction Avoidance** | "Every time you end up with a compaction, the agent gets lost" | Recursive mode delegates to bounded workers; no compaction needed |
-| **Programmatic Control Flow** | Use `for` loops for 10,000 docs instead of 10,000 sequential tool calls | Planner → parallel workers → synthesizer pipeline |
-| **Verification Gates** | LLM-as-judge on trajectories; detect unsupported claims | Separate verifier LLM call gates every answer |
+| **Programmatic Control Flow** | Use `for` loops for 10,000 docs instead of 10,000 sequential tool calls | Planner → sequential bounded workers → synthesizer pipeline |
+| **Verification Gates** | LLM-as-judge on trajectories; detect unsupported claims | Both baseline and recursive runs are verified against document-backed source snippets, with recursive runs also providing evidence cards |
 | **Continual Learning** | Harvest traces, feedback, train on harness | JSONL trace output captures every LLM call for future training loops |
 
 ## License
 
 MIT
-

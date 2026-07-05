@@ -19,7 +19,20 @@ def test_compare_runs_handles_missing_verification_json_gracefully(
 
     report = compare_runs(run_a, run_b, out)
 
-    assert "Verification verdict | n/a | n/a" in report
+    assert (
+        "Verification verdict | not evaluated (missing verification.json) | "
+        "not evaluated (missing verification.json)"
+    ) in report
+    assert "| Unsupported claims | not evaluated | not evaluated |" in report
+    assert "| Source attribution errors | not evaluated | not evaluated |" in report
+    assert (
+        "- Run A was not evaluated because verifier output is missing "
+        "(verification.json)."
+    ) in report
+    assert (
+        "- Run B was not evaluated because verifier output is missing "
+        "(verification.json)."
+    ) in report
     assert out.read_text(encoding="utf-8") == report
 
 
@@ -65,6 +78,9 @@ def test_compare_runs_with_two_valid_run_dirs_produces_markdown_report(
     assert report.startswith("# Run Comparison")
     assert "| Evidence cards | 1 | 2 |" in report
     assert "| Verification verdict | pass | partial |" in report
+    assert "Add qualitative analysis here." not in report
+    assert "- Run A has fewer unsupported claims than Run B." in report
+    assert "- Run A has fewer source attribution errors than Run B." in report
 
 
 def test_compare_runs_writes_to_specified_output_path(tmp_path: Path) -> None:

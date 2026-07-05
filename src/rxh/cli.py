@@ -63,6 +63,7 @@ def run(
             docs=docs,
             provider=provider,
             model=model,
+            verifier_model=verifier_model,
             out_dir=out,
             trace=trace,
         )

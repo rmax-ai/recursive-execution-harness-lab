@@ -37,14 +37,14 @@ export const REFERENCE = {
       insight:
         "Models drop from ~80% → ~36% on information retrieval as context grows to 1M tokens (MRCR benchmark)",
       manifestation:
-        "The long-context baseline mode demonstrates this degradation",
+        "The long-context baseline mode measures a single-prompt workflow under a fixed budget; it does not prove degradation by itself",
     },
     {
       concept: "Reference-Based Execution",
       insight:
         "Pass variables/handles, not raw text — like Jupyter notebook exploratory data analysis",
       manifestation:
-        "ReferenceStore + EvidenceCard.source_ref — workers fetch by reference",
+        "Filesystem-backed document refs plus EvidenceCard.source_ref let recursive workers operate on assigned source IDs",
     },
     {
       concept: "Compaction Avoidance",
@@ -58,14 +58,14 @@ export const REFERENCE = {
       insight:
         "Use for loops for 10,000 docs instead of 10,000 sequential tool calls",
       manifestation:
-        "Planner → parallel workers → synthesizer pipeline",
+        "Planner → sequential bounded workers → synthesizer pipeline",
     },
     {
       concept: "Verification Gates",
       insight:
         "LLM-as-judge on trajectories; detect unsupported claims",
       manifestation:
-        "Separate verifier LLM call gates every answer",
+        "Both baseline and recursive runs are verified against document-backed source snippets, with recursive runs also providing evidence cards",
     },
     {
       concept: "Continual Learning",
@@ -81,7 +81,7 @@ export const THREATS = [
   "The verifier is model-based and may share blind spots with the generator.",
   "The corpus may favor one architecture over another.",
   "Recursive execution uses more explicit scaffolding — prompt clarity may improve independently of architecture.",
-  "The baseline may be disadvantaged if context limits force document truncation.",
+  "The baseline may be disadvantaged if context limits force document truncation, even though both modes now use the same verifier step.",
   "Results from research synthesis may not generalize to coding, customer support, or enterprise workflows.",
   "Token cost may vary by provider and caching strategy.",
   "Better long-context models may reduce the observed gap.",

@@ -138,3 +138,9 @@ def test_run_recursive_with_mock_provider_completes_full_pipeline(
     assert any('"stage":"synthesis"' in line for line in trace_lines)
     assert any('"stage":"verification"' in line for line in trace_lines)
     assert any('"stage":"run"' in line for line in trace_lines)
+
+    verifier_prompt = provider.calls[-1]["messages"][1]["content"]
+    assert "Source snippets:" in verifier_prompt
+    assert "Source: doc_0001" in verifier_prompt
+    assert "Source: doc_0002" in verifier_prompt
+    assert "excerpt=Alpha evidence." in verifier_prompt

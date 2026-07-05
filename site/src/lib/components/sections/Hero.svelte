@@ -6,6 +6,6 @@
 <p class="mt-8 text-slate-400 text-lg leading-relaxed max-w-3xl">
   Long-running AI agents should not stuff everything into growing context windows.
   They should execute over durable references, bounded subtasks, evidence stores,
-  and verification gates. This project <strong class="text-white">measures</strong>
+  and verification steps. This project <strong class="text-white">measures</strong>
   whether that claim holds — and under what conditions it breaks.
 </p>
