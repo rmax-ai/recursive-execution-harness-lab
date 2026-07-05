@@ -34,24 +34,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v5
-        with:
-          version: latest
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: site/pnpm-lock.yaml
 
       - name: Install site deps
-        run: cd site && pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
+        working-directory: site
 
       - name: Type-check
-        run: cd site && pnpm exec svelte-check --tsconfig ./tsconfig.json
+        run: pnpm exec svelte-check --tsconfig ./tsconfig.json
+        working-directory: site
 
       - name: Build
-        run: cd site && pnpm build
+        run: pnpm build
+        working-directory: site
 
       - name: Verify output
         run: test -f docs/index.html && echo "Site built successfully"
