@@ -30,10 +30,10 @@ def run(
         str, typer.Option(help="Execution mode: 'long-context' or 'recursive'")
     ],
     out: Annotated[Path, typer.Option(help="Output directory for this run")],
-    model: Annotated[str, typer.Option(help="Model name")] = "gpt-5.5-thinking",
+    model: Annotated[str, typer.Option(help="Model name")] = "gpt-5.4-mini",
     verifier_model: Annotated[
         str, typer.Option(help="Verifier model name")
-    ] = "gpt-5.5-thinking",
+    ] = "gpt-5.4-mini",
 ):
     """Run a benchmark task."""
     run_id = f"run_{uuid4().hex[:8]}"
@@ -93,11 +93,12 @@ def compare(
     ] = None,
 ):
     """Compare two benchmark runs."""
-    report = compare_runs(run_a, run_b, out or Path("/dev/stdout"))
-    if not out:
-        console.print(report)
-    else:
+    if out:
+        report = compare_runs(run_a, run_b, out)
         console.print(f"[green]Report written to {out}[/green]")
+    else:
+        report = compare_runs(run_a, run_b, Path("/dev/null"))
+        console.print(report)
 
 
 @app.command()

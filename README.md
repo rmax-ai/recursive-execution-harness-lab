@@ -32,18 +32,18 @@ git clone https://github.com/rmax-ai/recursive-execution-harness-lab
 cd recursive-execution-harness-lab
 uv sync --extra dev
 
-# Run baseline
-rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
+# Run baseline (defaults to gpt-5.4-mini)
+uv run rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
   --corpus benchmarks/research_synthesis/corpora/sample \
-  --mode long-context --model gpt-5.5-thinking --out runs/baseline
+  --mode long-context --out runs/baseline
 
 # Run recursive
-rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
+uv run rxh run --task benchmarks/research_synthesis/tasks/recursive_execution.yaml \
   --corpus benchmarks/research_synthesis/corpora/sample \
-  --mode recursive --model gpt-5.5-thinking --out runs/recursive
+  --mode recursive --out runs/recursive
 
 # Compare
-rxh compare runs/baseline runs/recursive
+uv run rxh compare runs/baseline runs/recursive
 
 # Run tests
 uv run pytest tests/ -v
@@ -74,6 +74,24 @@ This project does not propose a new foundation model or a new agent framework.
 It proposes a measurement harness for an architectural question:
 When should long-running agents rely on larger context, and when should they
 externalize state into recursive execution, evidence stores, and verification gates?
+
+## Inspiration & References
+
+This project is informed by the emerging consensus that long-running agents need
+architectural patterns beyond raw context scaling. Key influences:
+
+- **[Jackman Ong — Continual Learning for Long-Running Agents](https://youtu.be/SVWmuJx0hHM)** (NVIDIA GTC 2026, Prime Intellect). Lays out the case for **Recursive Language Models (RLMs)**: agents that pass *references* into context instead of raw text, write code to access/slice data programmatically, and delegate messy work to sub-agents via control flow rather than sequential tool calls. Documents the "context rot" phenomenon where 1M-token models lose ~50% of their reasoning capability. Introduces the **Mismanaged Genius Hypothesis**: LLMs are capable but poorly orchestrated — let them code their own harnesses. Frames RLMs as "the next thinking" — what chain-of-thought was to 2022, programmatic context manipulation will be to agent architectures.
+
+Key concepts from the talk that directly inform this harness:
+
+| Concept | Talk Insight | Manifestation in This Project |
+|---|---|---|
+| **Context Rot** | Models drop from ~80% → ~36% on information retrieval as context grows to 1M tokens (MRCR benchmark) | The `long-context` baseline mode demonstrates this degradation |
+| **Reference-Based Execution** | Pass variables/handles, not raw text — like Jupyter notebook EDA | `ReferenceStore` + `EvidenceCard.source_ref` — workers fetch by reference |
+| **Compaction Avoidance** | "Every time you end up with a compaction, the agent gets lost" | Recursive mode delegates to bounded workers; no compaction needed |
+| **Programmatic Control Flow** | Use `for` loops for 10,000 docs instead of 10,000 sequential tool calls | Planner → parallel workers → synthesizer pipeline |
+| **Verification Gates** | LLM-as-judge on trajectories; detect unsupported claims | Separate verifier LLM call gates every answer |
+| **Continual Learning** | Harvest traces, feedback, train on harness | JSONL trace output captures every LLM call for future training loops |
 
 ## License
 

@@ -8,6 +8,7 @@
   import Metrics from "$lib/components/sections/Metrics.svelte";
   import Validity from "$lib/components/sections/Validity.svelte";
   import Contribution from "$lib/components/sections/Contribution.svelte";
+  import Inspiration from "$lib/components/sections/Inspiration.svelte";
   import Footer from "$lib/components/sections/Footer.svelte";
 </script>
 
@@ -39,6 +40,10 @@
 
 <Section>
   <Contribution />
+</Section>
+
+<Section>
+  <Inspiration />
 </Section>
 
 <Footer />

@@ -23,6 +23,60 @@ export const METRICS = [
   { label: "Trace Completeness", desc: "Required trace events present / total required" },
 ];
 
+export const REFERENCE = {
+  title: "Continual Learning for Long-Running Agents",
+  speaker: "Jackman Ong",
+  role: "Founding Research Engineer @ Prime Intellect",
+  venue: "NVIDIA GTC 2026",
+  url: "https://youtu.be/SVWmuJx0hHM",
+  summary:
+    "Makes the case for Recursive Language Models (RLMs): agents that pass references into context instead of raw text, write code to access data programmatically, and delegate to sub-agents via control flow. Documents 'context rot' — 1M-token models that lose ~50% reasoning capability. Frames RLMs as 'the next thinking': what chain-of-thought was to 2022, programmatic context manipulation will be to agent architectures.",
+  concepts: [
+    {
+      concept: "Context Rot",
+      insight:
+        "Models drop from ~80% → ~36% on information retrieval as context grows to 1M tokens (MRCR benchmark)",
+      manifestation:
+        "The long-context baseline mode demonstrates this degradation",
+    },
+    {
+      concept: "Reference-Based Execution",
+      insight:
+        "Pass variables/handles, not raw text — like Jupyter notebook exploratory data analysis",
+      manifestation:
+        "ReferenceStore + EvidenceCard.source_ref — workers fetch by reference",
+    },
+    {
+      concept: "Compaction Avoidance",
+      insight:
+        '"Every time you end up with a compaction, the agent gets lost"',
+      manifestation:
+        "Recursive mode delegates to bounded sub-agents; no compaction needed",
+    },
+    {
+      concept: "Programmatic Control Flow",
+      insight:
+        "Use for loops for 10,000 docs instead of 10,000 sequential tool calls",
+      manifestation:
+        "Planner → parallel workers → synthesizer pipeline",
+    },
+    {
+      concept: "Verification Gates",
+      insight:
+        "LLM-as-judge on trajectories; detect unsupported claims",
+      manifestation:
+        "Separate verifier LLM call gates every answer",
+    },
+    {
+      concept: "Continual Learning",
+      insight:
+        "Harvest traces + feedback → train models on their specific harness",
+      manifestation:
+        "JSONL trace output captures every LLM call for future training loops",
+    },
+  ],
+};
+
 export const THREATS = [
   "The verifier is model-based and may share blind spots with the generator.",
   "The corpus may favor one architecture over another.",
