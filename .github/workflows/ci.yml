@@ -21,12 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v6.0.9
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
-          cache-dependency-path: site/pnpm-lock.yaml
+      - run: npm install -g pnpm@11
       - run: pnpm install --frozen-lockfile
         working-directory: site
       - run: pnpm exec svelte-check --tsconfig ./tsconfig.json
