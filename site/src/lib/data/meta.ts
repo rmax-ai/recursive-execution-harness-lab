@@ -40,11 +40,11 @@ export const REFERENCE = {
         "The long-context baseline mode measures a single-prompt workflow under a fixed budget; it does not prove degradation by itself",
     },
     {
-      concept: "Reference-Based Execution",
+      concept: "Reference-Indexed Execution",
       insight:
-        "Pass variables/handles, not raw text — like Jupyter notebook exploratory data analysis",
+        "Pass document identifiers through the workflow instead of assigning the whole corpus to every step",
       manifestation:
-        "Filesystem-backed document refs plus EvidenceCard.source_ref let recursive workers operate on assigned source IDs",
+        "Planner-assigned document refs plus EvidenceCard.source_ref keep recursive work bounded, but workers still read the full text of their assigned documents",
     },
     {
       concept: "Compaction Avoidance",
@@ -65,7 +65,7 @@ export const REFERENCE = {
       insight:
         "LLM-as-judge on trajectories; detect unsupported claims",
       manifestation:
-        "Both baseline and recursive runs are verified against document-backed source snippets, with recursive runs also providing evidence cards",
+        "Both baseline and recursive runs are verified against source snippets keyed by source_ref, with recursive runs also providing explicit evidence-to-source mappings",
     },
     {
       concept: "Continual Learning",

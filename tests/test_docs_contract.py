@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_readme_avoids_removed_architecture_claims() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "policy gate" not in readme
+    assert "reference-based execution" not in readme
+    assert "Reference-Based Execution" not in readme
+    assert "Reference-Indexed Execution" in readme
+
+
+def test_site_source_avoids_removed_architecture_claims() -> None:
+    hero = (ROOT / "site/src/lib/components/sections/Hero.svelte").read_text(
+        encoding="utf-8"
+    )
+    mode_comparison = (
+        ROOT / "site/src/lib/components/sections/ModeComparison.svelte"
+    ).read_text(encoding="utf-8")
+    pipeline = (ROOT / "site/src/lib/components/sections/Pipeline.svelte").read_text(
+        encoding="utf-8"
+    )
+
+    assert "reference-based execution" not in hero
+    assert "policy gate" not in mode_comparison
+    assert "governed execution graph" not in pipeline
+    assert "reference-indexed bounded execution" in hero

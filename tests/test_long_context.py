@@ -112,6 +112,10 @@ def test_run_long_context_calls_provider_and_writes_final_answer(
     assert len(provider.calls) == 2
     assert provider.calls[1]["model"] == "gpt-verify"
     verifier_prompt = provider.calls[1]["messages"][1]["content"]
+    assert "Evidence to source map:" in verifier_prompt
+    assert "none" in verifier_prompt
+    assert "Source snippets by reference:" in verifier_prompt
+    assert "doc_0001:" in verifier_prompt
     assert "Source snippets:" in verifier_prompt
     assert "Source: doc_0001" in verifier_prompt
     assert "Excerpt: Document body" in verifier_prompt

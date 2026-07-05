@@ -29,6 +29,34 @@ def build_source_snippets(source_documents: list[DocumentRef]) -> str:
     return "\n\n".join(snippets)
 
 
+def build_source_snippets_by_ref(source_documents: list[DocumentRef]) -> str:
+    sections: list[str] = []
+
+    for doc in source_documents:
+        excerpt = load_document_text(doc)[:SOURCE_SNIPPET_CHARS].strip()
+        sections.append(
+            "\n".join(
+                [
+                    f"{doc.id}:",
+                    f"  title: {doc.title or doc.source_path}",
+                    f"  excerpt: {excerpt}",
+                ]
+            )
+        )
+
+    return "\n\n".join(sections)
+
+
+def build_evidence_source_map(evidence_cards: list[EvidenceCard]) -> str:
+    if not evidence_cards:
+        return "none"
+
+    return "\n".join(
+        f"{card.id} -> {card.source_ref} | excerpt={card.quote_or_excerpt}"
+        for card in evidence_cards
+    )
+
+
 def verification_prompt(
     final_answer: str,
     evidence_cards: list[EvidenceCard],
@@ -40,6 +68,8 @@ def verification_prompt(
         for e in evidence_cards
     )
     source_text = build_source_snippets(source_documents)
+    source_map_text = build_source_snippets_by_ref(source_documents)
+    evidence_source_map = build_evidence_source_map(evidence_cards)
 
     return f"""
 You are a strict verifier.
@@ -49,6 +79,12 @@ Final answer:
 
 Evidence cards:
 {evidence_text}
+
+Evidence to source map:
+{evidence_source_map}
+
+Source snippets by reference:
+{source_map_text}
 
 Source snippets:
 {source_text}
@@ -72,7 +108,8 @@ Return JSON with this shape:
 
 Rules:
 - Be strict.
-- Use source snippets as the ground truth when judging support and attribution.
+- Use source snippets keyed by `source_ref` as the ground truth when judging
+  support and attribution.
 - Evidence cards are intermediate summaries, not authoritative by themselves.
 - A claim is unsupported if it does not map to the provided source material.
 - Mark overgeneralization as unsupported or partially supported.

@@ -37,6 +37,11 @@ def test_verification_prompt_includes_final_answer_text(tmp_path: Path) -> None:
 
     assert "Final answer text." in prompt
     assert "ev_item_001_000 | source=doc_0001" in prompt
+    assert "Evidence to source map:" in prompt
+    assert "ev_item_001_000 -> doc_0001" in prompt
+    assert "Source snippets by reference:" in prompt
+    assert "doc_0001:" in prompt
+    assert "excerpt: Alpha supports bounded execution." in prompt
     assert "excerpt=Alpha supports bounded execution." in prompt
     assert "Source snippets:" in prompt
     assert "Source: doc_0001" in prompt

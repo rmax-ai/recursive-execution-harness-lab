@@ -1,10 +1,10 @@
 # Recursive Execution Harness Lab
 
-A research harness for comparing long-context agent execution against recursive, reference-based execution on multi-document research synthesis tasks.
+A research harness for comparing long-context agent execution against recursive, reference-indexed bounded execution on multi-document research synthesis tasks.
 
 ## Research Question
 
-When does recursive, reference-based execution outperform naive long-context prompting for long-running agent tasks?
+When does recursive, reference-indexed bounded execution outperform naive long-context prompting for long-running agent tasks?
 
 ## Architecture
 
@@ -88,10 +88,10 @@ Key concepts from the talk that directly inform this harness:
 | Concept | Talk Insight | Manifestation in This Project |
 |---|---|---|
 | **Context Rot** | Models drop from ~80% → ~36% on information retrieval as context grows to 1M tokens (MRCR benchmark) | The `long-context` baseline mode measures a single-prompt workflow under a fixed budget; it does not prove degradation by itself |
-| **Reference-Based Execution** | Pass variables/handles, not raw text — like Jupyter notebook EDA | Filesystem-backed document refs plus `EvidenceCard.source_ref` let recursive workers operate on assigned source IDs |
+| **Reference-Indexed Execution** | Pass document IDs through the workflow instead of assigning the whole corpus to every step | Planner-assigned document refs plus `EvidenceCard.source_ref` keep recursive work bounded, but workers still read the full text of their assigned documents |
 | **Compaction Avoidance** | "Every time you end up with a compaction, the agent gets lost" | Recursive mode delegates to bounded workers; no compaction needed |
 | **Programmatic Control Flow** | Use `for` loops for 10,000 docs instead of 10,000 sequential tool calls | Planner → sequential bounded workers → synthesizer pipeline |
-| **Verification Gates** | LLM-as-judge on trajectories; detect unsupported claims | Both baseline and recursive runs are verified against document-backed source snippets, with recursive runs also providing evidence cards |
+| **Verification Gates** | LLM-as-judge on trajectories; detect unsupported claims | Both baseline and recursive runs are verified against source snippets keyed by `source_ref`, with recursive runs also providing explicit evidence-to-source mappings |
 | **Continual Learning** | Harvest traces, feedback, train on harness | JSONL trace output captures every LLM call for future training loops |
 
 ## License

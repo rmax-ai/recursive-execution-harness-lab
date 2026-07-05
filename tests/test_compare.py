@@ -14,8 +14,36 @@ def test_compare_runs_handles_missing_verification_json_gracefully(
     out = tmp_path / "report.md"
     run_a.mkdir()
     run_b.mkdir()
-    (run_a / "trace.jsonl").write_text('{"event":"a"}\n', encoding="utf-8")
-    (run_b / "trace.jsonl").write_text('{"event":"b"}\n', encoding="utf-8")
+    (run_a / "trace.jsonl").write_text(
+        '\n'.join(
+            [
+                json.dumps(
+                    {
+                        "event_type": "run_started",
+                        "metadata": {"mode": "long-context"},
+                    }
+                ),
+                json.dumps({"event_type": "run_completed"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_b / "trace.jsonl").write_text(
+        '\n'.join(
+            [
+                json.dumps(
+                    {
+                        "event_type": "run_started",
+                        "metadata": {"mode": "long-context"},
+                    }
+                ),
+                json.dumps({"event_type": "run_completed"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     report = compare_runs(run_a, run_b, out)
 
@@ -25,18 +53,12 @@ def test_compare_runs_handles_missing_verification_json_gracefully(
     ) in report
     assert "| Unsupported claims | not evaluated | not evaluated |" in report
     assert "| Source attribution errors | not evaluated | not evaluated |" in report
-    assert (
-        "- Run A was not evaluated because verifier output is missing "
-        "(verification.json)."
-    ) in report
-    assert (
-        "- Run B was not evaluated because verifier output is missing "
-        "(verification.json)."
-    ) in report
+    assert "- Run A was not evaluated because verifier output is missing " in report
+    assert "- Run B was not evaluated because verifier output is missing " in report
     assert out.read_text(encoding="utf-8") == report
 
 
-def test_compare_runs_with_two_valid_run_dirs_produces_markdown_report(
+def test_compare_runs_uses_trace_metrics_and_coverage_in_report(
     tmp_path: Path,
 ) -> None:
     run_a = tmp_path / "run_a"
@@ -44,13 +66,101 @@ def test_compare_runs_with_two_valid_run_dirs_produces_markdown_report(
     out = tmp_path / "report.md"
     run_a.mkdir()
     run_b.mkdir()
+
+    (run_a / "documents.jsonl").write_text(
+        '\n'.join(
+            [
+                json.dumps({"id": "doc_0001"}),
+                json.dumps({"id": "doc_0002"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_b / "documents.jsonl").write_text(
+        json.dumps({"id": "doc_0001"}) + "\n",
+        encoding="utf-8",
+    )
+    (run_a / "plan.json").write_text(
+        json.dumps(
+            {
+                "items": [
+                    {"assigned_refs": ["doc_0001"]},
+                    {"assigned_refs": ["doc_0002"]},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_b / "plan.json").write_text(
+        json.dumps({"items": []}),
+        encoding="utf-8",
+    )
     (run_a / "evidence_cards.jsonl").write_text('{"id":"ev1"}\n', encoding="utf-8")
     (run_b / "evidence_cards.jsonl").write_text(
-        '{"id":"ev1"}\n{"id":"ev2"}\n', encoding="utf-8"
+        '{"id":"ev1"}\n{"id":"ev2"}\n',
+        encoding="utf-8",
     )
-    (run_a / "trace.jsonl").write_text('{"event":"a"}\n', encoding="utf-8")
+    (run_a / "trace.jsonl").write_text(
+        '\n'.join(
+            [
+                json.dumps(
+                    {
+                        "event_type": "run_started",
+                        "metadata": {"mode": "recursive"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "event_type": "recursive_run_started",
+                        "token_usage": {"input": 11, "output": 2},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "event_type": "planning_started",
+                        "token_usage": {"input": 3, "output": 0},
+                    }
+                ),
+                json.dumps({"event_type": "planning_completed"}),
+                json.dumps({"event_type": "worker_started"}),
+                json.dumps(
+                    {
+                        "event_type": "worker_completed",
+                        "token_usage": {"input": 5, "output": 7},
+                    }
+                ),
+                json.dumps({"event_type": "synthesis_started"}),
+                json.dumps({"event_type": "synthesis_completed"}),
+                json.dumps({"event_type": "verification_started"}),
+                json.dumps({"event_type": "verification_completed"}),
+                json.dumps({"event_type": "recursive_run_completed"}),
+                json.dumps({"event_type": "run_completed"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     (run_b / "trace.jsonl").write_text(
-        '{"event":"a"}\n{"event":"b"}\n', encoding="utf-8"
+        '\n'.join(
+            [
+                json.dumps(
+                    {
+                        "event_type": "run_started",
+                        "metadata": {"mode": "long-context"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "event_type": "prompt_build_started",
+                        "token_usage": {"input": 2, "output": 0},
+                    }
+                ),
+                json.dumps({"event_type": "run_completed"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
     )
     (run_a / "verification.json").write_text(
         json.dumps(
@@ -75,12 +185,69 @@ def test_compare_runs_with_two_valid_run_dirs_produces_markdown_report(
 
     report = compare_runs(run_a, run_b, out)
 
-    assert report.startswith("# Run Comparison")
-    assert "| Evidence cards | 1 | 2 |" in report
+    assert "| Detected mode | recursive | long-context |" in report
+    assert "| Trace input tokens | 19 | 2 |" in report
+    assert "| Trace output tokens | 9 | 0 |" in report
+    assert "| Trace total tokens | 28 | 2 |" in report
+    assert "| Trace completeness | 12/12 | 3/7 |" in report
+    assert "| Assigned-ref coverage | 2/2 | 0/1 |" in report
     assert "| Verification verdict | pass | partial |" in report
-    assert "Add qualitative analysis here." not in report
-    assert "- Run A has fewer unsupported claims than Run B." in report
-    assert "- Run A has fewer source attribution errors than Run B." in report
+    assert "- Run A has a more complete required trace surface." in report
+    assert "- Run B consumed fewer traced tokens than Run A." in report
+
+
+def test_compare_runs_reports_missing_required_events_for_detected_mode(
+    tmp_path: Path,
+) -> None:
+    run_a = tmp_path / "run_a"
+    run_b = tmp_path / "run_b"
+    out = tmp_path / "report.md"
+    run_a.mkdir()
+    run_b.mkdir()
+    (run_a / "trace.jsonl").write_text(
+        '\n'.join(
+            [
+                json.dumps(
+                    {
+                        "event_type": "run_started",
+                        "metadata": {"mode": "long-context"},
+                    }
+                ),
+                json.dumps({"event_type": "prompt_build_started"}),
+                json.dumps({"event_type": "prompt_built"}),
+                json.dumps({"event_type": "model_completed"}),
+                json.dumps({"event_type": "verification_started"}),
+                json.dumps({"event_type": "verification_completed"}),
+                json.dumps({"event_type": "run_completed"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_b / "trace.jsonl").write_text(
+        '\n'.join(
+            [
+                json.dumps(
+                    {
+                        "event_type": "run_started",
+                        "metadata": {"mode": "recursive"},
+                    }
+                ),
+                json.dumps({"event_type": "recursive_run_started"}),
+                json.dumps({"event_type": "planning_started"}),
+                json.dumps({"event_type": "run_completed"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = compare_runs(run_a, run_b, out)
+
+    assert "- Run A missing events: none" in report
+    assert "Run B missing events: planning_completed, recursive_run_completed" in report
+    assert "synthesis_completed" in report
+    assert "verification_completed" in report
 
 
 def test_compare_runs_writes_to_specified_output_path(tmp_path: Path) -> None:
