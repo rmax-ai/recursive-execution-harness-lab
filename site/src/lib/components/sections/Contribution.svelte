@@ -2,5 +2,6 @@
   This project does not propose a new foundation model or a new agent framework.
   It proposes a measurement harness for an architectural question: when should
   long-running agents rely on larger context, and when should they externalize
-  state into recursive execution, evidence stores, and explicit verification?
+  state into recursive execution, bounded source slicing, evidence stores,
+  explicit verification, and runtime policy gates?
 </blockquote>

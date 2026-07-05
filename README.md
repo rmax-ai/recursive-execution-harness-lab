@@ -16,11 +16,13 @@ flowchart TD
     D --> E[Plan Items]
     E --> F1[Bounded Worker 1]
     E --> F2[Bounded Worker 2]
-    F1 --> G[Evidence Store]
-    F2 --> G
+    F1 --> S[Source Slices]
+    F2 --> S
+    S --> G[Evidence Store]
     G --> H[Synthesizer]
     H --> I[Verifier]
-    I --> K[Final Answer]
+    I --> J[Policy Gate]
+    J --> K[Final Answer]
 ```
 
 ## Quickstart
@@ -74,7 +76,8 @@ docs/             — architecture docs
 This project does not propose a new foundation model or a new agent framework.
 It proposes a measurement harness for an architectural question:
 When should long-running agents rely on larger context, and when should they
-externalize state into recursive execution, evidence stores, and explicit verification?
+externalize state into recursive execution, bounded source slicing, evidence
+stores, explicit verification, and runtime policy gates?
 
 ## Inspiration & References
 
@@ -88,10 +91,11 @@ Key concepts from the talk that directly inform this harness:
 | Concept | Talk Insight | Manifestation in This Project |
 |---|---|---|
 | **Context Rot** | Models drop from ~80% → ~36% on information retrieval as context grows to 1M tokens (MRCR benchmark) | The `long-context` baseline mode measures a single-prompt workflow under a fixed budget; it does not prove degradation by itself |
-| **Reference-Indexed Execution** | Pass document IDs through the workflow instead of assigning the whole corpus to every step | Planner-assigned document refs plus `EvidenceCard.source_ref` keep recursive work bounded, but workers still read the full text of their assigned documents |
+| **Reference-Indexed Execution** | Pass document IDs through the workflow instead of assigning the whole corpus to every step | Planner-assigned refs drive bounded source-slice retrieval, and `EvidenceCard.source_ref` preserves provenance back to the original document |
 | **Compaction Avoidance** | "Every time you end up with a compaction, the agent gets lost" | Recursive mode delegates to bounded workers; no compaction needed |
 | **Programmatic Control Flow** | Use `for` loops for 10,000 docs instead of 10,000 sequential tool calls | Planner → sequential bounded workers → synthesizer pipeline |
 | **Verification Gates** | LLM-as-judge on trajectories; detect unsupported claims | Both baseline and recursive runs are verified against source snippets keyed by `source_ref`, with recursive runs also providing explicit evidence-to-source mappings |
+| **Runtime Policy Gates** | Evaluate whether a verified answer is safe to deliver | Both modes now write a post-verification `policy_decision.json` artifact and trace a distinct policy stage |
 | **Continual Learning** | Harvest traces, feedback, train on harness | JSONL trace output captures every LLM call for future training loops |
 
 ## License

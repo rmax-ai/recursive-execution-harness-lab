@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .models import DocumentRef, EvidenceCard, TaskSpec, WorkerResult
 from .planner import create_plan
+from .policy import apply_policy_gate
 from .providers import LLMProvider
 from .synthesizer import synthesize_answer
 from .trace import TraceWriter
@@ -89,10 +90,20 @@ def run_recursive(
         trace=trace,
     )
 
-    verify_answer(
+    verification = verify_answer(
         final_answer=final_answer,
         evidence_cards=evidence_cards,
         source_documents=docs,
+        provider=provider,
+        model=verifier_model,
+        out_dir=out_dir,
+        trace=trace,
+    )
+
+    policy_decision = apply_policy_gate(
+        task=task,
+        final_answer=final_answer,
+        verification=verification,
         provider=provider,
         model=verifier_model,
         out_dir=out_dir,
@@ -104,11 +115,12 @@ def run_recursive(
         event_type="recursive_run_completed",
         actor="runner",
         input_refs=doc_ids,
-        output_refs=["final_answer.md", "verification.json"],
+        output_refs=["final_answer.md", "verification.json", "policy_decision.json"],
         metadata={
             "plan_id": plan.id,
             "worker_results": len(worker_results),
             "evidence_cards": len(evidence_cards),
+            "policy_decision": policy_decision.decision,
         },
     )
 

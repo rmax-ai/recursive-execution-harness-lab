@@ -13,9 +13,9 @@
   </Card>
 
   <Card title="Mode B: Recursive">
-    <p>Ingest → planner → bounded workers → evidence cards → synthesizer → verifier → final answer with provenance trace.</p>
+    <p>Ingest → planner → bounded source slices → evidence cards → synthesizer → verifier → policy gate → final answer with provenance trace.</p>
     {#snippet footer()}
-      More calls. More inspectable. Verifier sees evidence cards, source-ref mappings, and document-backed source snippets.
+      More calls. More inspectable. Workers operate on bounded source slices, and the delivered answer passes both verification and policy gating.
     {/snippet}
   </Card>
 </div>

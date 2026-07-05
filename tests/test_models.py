@@ -6,6 +6,7 @@ from rxh.models import (
     EvidenceCard,
     Plan,
     PlanItem,
+    PolicyDecision,
     RunMetrics,
     TaskSpec,
     TraceEvent,
@@ -123,6 +124,19 @@ def test_verification_result_supports_pass_and_fail_verdicts() -> None:
     assert failing.verdict == "fail"
 
 
+def test_policy_decision_round_trip_json() -> None:
+    decision = PolicyDecision(
+        decision="revise",
+        rationale="Unsupported claims require correction.",
+        required_changes=["Remove unsupported statement."],
+        blocked_claims=["Unsupported statement."],
+    )
+
+    restored = PolicyDecision.model_validate_json(decision.model_dump_json())
+
+    assert restored == decision
+
+
 def test_trace_event_default_factory_fields_populated() -> None:
     event = TraceEvent(
         run_id="run_001",
@@ -149,3 +163,4 @@ def test_run_metrics_defaults_all_zero() -> None:
     assert metrics.evidence_card_count == 0
     assert metrics.unsupported_claim_count == 0
     assert metrics.source_attribution_error_count == 0
+    assert metrics.policy_decision is None

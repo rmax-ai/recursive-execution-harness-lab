@@ -100,6 +100,16 @@ class VerificationResult(BaseModel):
     source_attribution_errors: list[str] = Field(default_factory=list)
 
 
+class PolicyDecision(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    id: str = Field(default_factory=lambda: new_id("policy"))
+    decision: Literal["allow", "revise", "deny"]
+    rationale: str
+    required_changes: list[str] = Field(default_factory=list)
+    blocked_claims: list[str] = Field(default_factory=list)
+
+
 class TraceEvent(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -128,3 +138,4 @@ class RunMetrics(BaseModel):
     unsupported_claim_count: int = 0
     source_attribution_error_count: int = 0
     verification_verdict: str | None = None
+    policy_decision: str | None = None

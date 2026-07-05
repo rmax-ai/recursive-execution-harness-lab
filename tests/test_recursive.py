@@ -109,6 +109,14 @@ def test_run_recursive_with_mock_provider_completes_full_pipeline(
                     "source_attribution_errors": [],
                 }
             ),
+            json.dumps(
+                {
+                    "decision": "allow",
+                    "rationale": "Verifier found no blocking issues.",
+                    "required_changes": [],
+                    "blocked_claims": [],
+                }
+            ),
         ]
     )
     trace_path = tmp_path / "trace.jsonl"
@@ -131,16 +139,22 @@ def test_run_recursive_with_mock_provider_completes_full_pipeline(
     assert (tmp_path / "evidence_cards.jsonl").exists()
     assert (tmp_path / "final_answer.md").exists()
     assert (tmp_path / "verification.json").exists()
+    assert (tmp_path / "policy_decision.json").exists()
 
     trace_lines = trace_path.read_text(encoding="utf-8").splitlines()
     assert any('"stage":"planning"' in line for line in trace_lines)
     assert any('"stage":"worker"' in line for line in trace_lines)
     assert any('"stage":"synthesis"' in line for line in trace_lines)
     assert any('"stage":"verification"' in line for line in trace_lines)
+    assert any('"stage":"policy"' in line for line in trace_lines)
     assert any('"stage":"run"' in line for line in trace_lines)
 
     verifier_prompt = provider.calls[-1]["messages"][1]["content"]
-    assert "Source snippets:" in verifier_prompt
-    assert "Source: doc_0001" in verifier_prompt
-    assert "Source: doc_0002" in verifier_prompt
-    assert "excerpt=Alpha evidence." in verifier_prompt
+    assert "Verification verdict:" in verifier_prompt
+    policy = json.loads((tmp_path / "policy_decision.json").read_text(encoding="utf-8"))
+    assert policy["decision"] == "allow"
+    verification_prompt = provider.calls[-2]["messages"][1]["content"]
+    assert "Source snippets:" in verification_prompt
+    assert "Source: doc_0001" in verification_prompt
+    assert "Source: doc_0002" in verification_prompt
+    assert "excerpt=Alpha evidence." in verification_prompt

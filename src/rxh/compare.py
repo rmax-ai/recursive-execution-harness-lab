@@ -13,6 +13,8 @@ TRACE_REQUIRED_EVENTS: dict[str, set[str]] = {
         "model_completed",
         "verification_started",
         "verification_completed",
+        "policy_started",
+        "policy_completed",
         "run_completed",
     },
     "recursive": {
@@ -26,6 +28,8 @@ TRACE_REQUIRED_EVENTS: dict[str, set[str]] = {
         "synthesis_completed",
         "verification_started",
         "verification_completed",
+        "policy_started",
+        "policy_completed",
         "recursive_run_completed",
         "run_completed",
     },
@@ -67,6 +71,7 @@ class RunSummary:
     trace_input_tokens: int
     trace_output_tokens: int
     verification_verdict: str
+    policy_decision: str
     unsupported_claims: str | int
     attribution_errors: str | int
     trace_completeness: str
@@ -184,11 +189,18 @@ def summarize_run(run_dir: Path) -> RunSummary:
     )
 
     verification = load_json(run_dir / "verification.json")
+    policy = load_json(run_dir / "policy_decision.json")
     has_verification = bool(verification)
+    has_policy = bool(policy)
     verdict = (
         verification.get("verdict", "n/a")
         if has_verification
         else "not evaluated (missing verification.json)"
+    )
+    policy_decision = (
+        policy.get("decision", "n/a")
+        if has_policy
+        else "not evaluated (missing policy_decision.json)"
     )
     unsupported_claims: str | int = (
         len(verification.get("unsupported_claims", []))
@@ -210,6 +222,7 @@ def summarize_run(run_dir: Path) -> RunSummary:
         trace_input_tokens=trace.input_tokens,
         trace_output_tokens=trace.output_tokens,
         verification_verdict=verdict,
+        policy_decision=policy_decision,
         unsupported_claims=unsupported_claims,
         attribution_errors=attribution_errors,
         trace_completeness=trace_completeness,
@@ -291,6 +304,15 @@ def compare_runs(run_a: Path, run_b: Path, out: Path) -> str:
             "for runs without verifier output."
         )
 
+    if summary_a.policy_decision != summary_b.policy_decision:
+        interpretation_lines.append(
+            "Policy gate decisions differ between the two runs."
+        )
+    else:
+        interpretation_lines.append(
+            f"Both runs have the same policy decision ({summary_a.policy_decision})."
+        )
+
     if (
         isinstance(summary_a.attribution_errors, int)
         and isinstance(summary_b.attribution_errors, int)
@@ -354,6 +376,10 @@ def compare_runs(run_a: Path, run_b: Path, out: Path) -> str:
                 "| Verification verdict | "
                 f"{summary_a.verification_verdict} | "
                 f"{summary_b.verification_verdict} |"
+            ),
+            (
+                "| Policy decision | "
+                f"{summary_a.policy_decision} | {summary_b.policy_decision} |"
             ),
         ]
     )

@@ -1,5 +1,5 @@
 export const PROJECT_VERSION = "v0.1.0";
-export const TEST_COUNT = 38;
+export const TEST_COUNT = 44;
 export const LICENSE = "MIT";
 export const REPO_URL = "https://github.com/rmax-ai/recursive-execution-harness-lab";
 export const DOCS_URL = "https://github.com/rmax-ai/recursive-execution-harness-lab/blob/main/docs/ARCHITECTURE.md";
@@ -19,6 +19,7 @@ export const METRICS = [
   { label: "Unsupported Claims", desc: "Claims the verifier flags as lacking source evidence" },
   { label: "Source Attribution Errors", desc: "Citations that don't match actual documents" },
   { label: "Evidence Coverage", desc: "Cited sources / relevant sources in the corpus" },
+  { label: "Policy Decision", desc: "Post-verification allow, revise, or deny decision" },
   { label: "Token Usage", desc: "Total input + output across all LLM calls" },
   { label: "Trace Completeness", desc: "Required trace events present / total required" },
 ];
@@ -44,7 +45,7 @@ export const REFERENCE = {
       insight:
         "Pass document identifiers through the workflow instead of assigning the whole corpus to every step",
       manifestation:
-        "Planner-assigned document refs plus EvidenceCard.source_ref keep recursive work bounded, but workers still read the full text of their assigned documents",
+        "Planner-assigned refs drive bounded source-slice retrieval, and EvidenceCard.source_ref preserves provenance back to the original document",
     },
     {
       concept: "Compaction Avoidance",
@@ -66,6 +67,13 @@ export const REFERENCE = {
         "LLM-as-judge on trajectories; detect unsupported claims",
       manifestation:
         "Both baseline and recursive runs are verified against source snippets keyed by source_ref, with recursive runs also providing explicit evidence-to-source mappings",
+    },
+    {
+      concept: "Runtime Policy Gates",
+      insight:
+        "Evaluate whether a verified answer is still safe to deliver",
+      manifestation:
+        "Both modes write a post-verification policy_decision.json artifact and trace a distinct policy stage",
     },
     {
       concept: "Continual Learning",

@@ -8,10 +8,10 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_readme_avoids_removed_architecture_claims() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "policy gate" not in readme
     assert "reference-based execution" not in readme
     assert "Reference-Based Execution" not in readme
     assert "Reference-Indexed Execution" in readme
+    assert "policy gate" in readme
 
 
 def test_site_source_avoids_removed_architecture_claims() -> None:
@@ -26,6 +26,13 @@ def test_site_source_avoids_removed_architecture_claims() -> None:
     )
 
     assert "reference-based execution" not in hero
-    assert "policy gate" not in mode_comparison
+    assert "policy gate" in mode_comparison
     assert "governed execution graph" not in pipeline
     assert "reference-indexed bounded execution" in hero
+
+
+def test_site_config_defaults_to_root_safe_base_path() -> None:
+    svelte_config = (ROOT / "site/svelte.config.js").read_text(encoding="utf-8")
+
+    assert 'const base = process.env.SITE_BASE_PATH ?? "";' in svelte_config
+    assert 'base: "/recursive-execution-harness-lab"' not in svelte_config

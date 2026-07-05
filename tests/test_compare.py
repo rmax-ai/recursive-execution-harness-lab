@@ -51,6 +51,10 @@ def test_compare_runs_handles_missing_verification_json_gracefully(
         "Verification verdict | not evaluated (missing verification.json) | "
         "not evaluated (missing verification.json)"
     ) in report
+    assert (
+        "Policy decision | not evaluated (missing policy_decision.json) | "
+        "not evaluated (missing policy_decision.json)"
+    ) in report
     assert "| Unsupported claims | not evaluated | not evaluated |" in report
     assert "| Source attribution errors | not evaluated | not evaluated |" in report
     assert "- Run A was not evaluated because verifier output is missing " in report
@@ -134,6 +138,8 @@ def test_compare_runs_uses_trace_metrics_and_coverage_in_report(
                 json.dumps({"event_type": "synthesis_completed"}),
                 json.dumps({"event_type": "verification_started"}),
                 json.dumps({"event_type": "verification_completed"}),
+                json.dumps({"event_type": "policy_started"}),
+                json.dumps({"event_type": "policy_completed"}),
                 json.dumps({"event_type": "recursive_run_completed"}),
                 json.dumps({"event_type": "run_completed"}),
             ]
@@ -156,6 +162,7 @@ def test_compare_runs_uses_trace_metrics_and_coverage_in_report(
                         "token_usage": {"input": 2, "output": 0},
                     }
                 ),
+                json.dumps({"event_type": "policy_started"}),
                 json.dumps({"event_type": "run_completed"}),
             ]
         )
@@ -182,6 +189,28 @@ def test_compare_runs_uses_trace_metrics_and_coverage_in_report(
         ),
         encoding="utf-8",
     )
+    (run_a / "policy_decision.json").write_text(
+        json.dumps(
+            {
+                "decision": "allow",
+                "rationale": "No policy issues found.",
+                "required_changes": [],
+                "blocked_claims": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_b / "policy_decision.json").write_text(
+        json.dumps(
+            {
+                "decision": "revise",
+                "rationale": "Verifier found correctable issues.",
+                "required_changes": ["Fix claim."],
+                "blocked_claims": ["claim"],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     report = compare_runs(run_a, run_b, out)
 
@@ -189,11 +218,13 @@ def test_compare_runs_uses_trace_metrics_and_coverage_in_report(
     assert "| Trace input tokens | 19 | 2 |" in report
     assert "| Trace output tokens | 9 | 0 |" in report
     assert "| Trace total tokens | 28 | 2 |" in report
-    assert "| Trace completeness | 12/12 | 3/7 |" in report
+    assert "| Trace completeness | 14/14 | 4/9 |" in report
     assert "| Assigned-ref coverage | 2/2 | 0/1 |" in report
     assert "| Verification verdict | pass | partial |" in report
+    assert "| Policy decision | allow | revise |" in report
     assert "- Run A has a more complete required trace surface." in report
     assert "- Run B consumed fewer traced tokens than Run A." in report
+    assert "- Policy gate decisions differ between the two runs." in report
 
 
 def test_compare_runs_reports_missing_required_events_for_detected_mode(
@@ -218,6 +249,8 @@ def test_compare_runs_reports_missing_required_events_for_detected_mode(
                 json.dumps({"event_type": "model_completed"}),
                 json.dumps({"event_type": "verification_started"}),
                 json.dumps({"event_type": "verification_completed"}),
+                json.dumps({"event_type": "policy_started"}),
+                json.dumps({"event_type": "policy_completed"}),
                 json.dumps({"event_type": "run_completed"}),
             ]
         )
@@ -235,6 +268,7 @@ def test_compare_runs_reports_missing_required_events_for_detected_mode(
                 ),
                 json.dumps({"event_type": "recursive_run_started"}),
                 json.dumps({"event_type": "planning_started"}),
+                json.dumps({"event_type": "policy_started"}),
                 json.dumps({"event_type": "run_completed"}),
             ]
         )
@@ -245,7 +279,10 @@ def test_compare_runs_reports_missing_required_events_for_detected_mode(
     report = compare_runs(run_a, run_b, out)
 
     assert "- Run A missing events: none" in report
-    assert "Run B missing events: planning_completed, recursive_run_completed" in report
+    assert "Run B missing events:" in report
+    assert "planning_completed" in report
+    assert "recursive_run_completed" in report
+    assert "policy_completed" in report
     assert "synthesis_completed" in report
     assert "verification_completed" in report
 

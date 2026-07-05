@@ -1,23 +1,100 @@
 from __future__ import annotations
 
+import re
+
 from .ingest import load_document_text
 from .json_utils import extract_json_object
 from .models import DocumentRef, EvidenceCard, PlanItem, TaskSpec, WorkerResult
 from .providers import LLMProvider
 from .trace import TraceWriter
 
+MAX_SOURCE_SLICE_CHARS = 1_200
+MAX_SLICES_PER_DOC = 2
+CHUNK_OVERLAP_CHARS = 160
+CHUNK_SIZE_CHARS = 900
 
-def worker_prompt(
-    task: TaskSpec, item: PlanItem, assigned_docs: list[DocumentRef]
-) -> str:
-    """Build a prompt for the evidence worker with full document text."""
-    docs_text: list[str] = []
+
+def query_terms(task: TaskSpec, item: PlanItem) -> set[str]:
+    """Build a simple lexical query for source-slice selection."""
+    text = " ".join(
+        [
+            task.question,
+            item.subquestion,
+            *item.expected_evidence,
+        ]
+    )
+    return {
+        term
+        for term in re.findall(r"[a-z0-9]{4,}", text.lower())
+        if term not in {"with", "this", "that", "from", "what", "does", "have"}
+    }
+
+
+def chunk_text(text: str, size: int = CHUNK_SIZE_CHARS) -> list[str]:
+    """Split text into overlapping chunks for bounded retrieval."""
+    stripped = text.strip()
+    if not stripped:
+        return []
+    if len(stripped) <= size:
+        return [stripped]
+
+    chunks: list[str] = []
+    start = 0
+    while start < len(stripped):
+        end = min(len(stripped), start + size)
+        chunks.append(stripped[start:end].strip())
+        if end == len(stripped):
+            break
+        start = max(end - CHUNK_OVERLAP_CHARS, start + 1)
+    return chunks
+
+
+def score_chunk(chunk: str, terms: set[str]) -> tuple[int, int]:
+    """Score chunks by lexical overlap, breaking ties by shorter excerpts."""
+    lowered = chunk.lower()
+    overlap = sum(1 for term in terms if term in lowered)
+    return overlap, -len(chunk)
+
+
+def select_source_slices(
+    task: TaskSpec,
+    item: PlanItem,
+    assigned_docs: list[DocumentRef],
+) -> list[tuple[DocumentRef, int, str]]:
+    """Retrieve bounded source slices keyed by source_ref for worker input."""
+    terms = query_terms(task, item)
+    selected: list[tuple[DocumentRef, int, str]] = []
 
     for doc in assigned_docs:
-        text = load_document_text(doc)
-        docs_text.append(
-            f"\n\n--- DOCUMENT {doc.id}: {doc.title or doc.source_path} ---\n{text}"
+        chunks = chunk_text(load_document_text(doc))
+        if not chunks:
+            continue
+
+        scored = sorted(
+            enumerate(chunks, start=1),
+            key=lambda pair: score_chunk(pair[1], terms),
+            reverse=True,
         )
+        for index, chunk in scored[:MAX_SLICES_PER_DOC]:
+            selected.append((doc, index, chunk[:MAX_SOURCE_SLICE_CHARS].strip()))
+
+    return selected
+
+
+def worker_prompt(
+    task: TaskSpec,
+    item: PlanItem,
+    assigned_docs: list[DocumentRef],
+    source_slices: list[tuple[DocumentRef, int, str]],
+) -> str:
+    """Build a prompt for the evidence worker with bounded source slices."""
+    docs_text = "\n".join(
+        (
+            f"\n\n--- SOURCE SLICE {doc.id}#{slice_index}: "
+            f"{doc.title or doc.source_path} ---\n{chunk}"
+        )
+        for doc, slice_index, chunk in source_slices
+    )
 
     return f"""
 You are a bounded evidence worker.
@@ -31,8 +108,11 @@ Your subquestion:
 Expected evidence:
 {chr(10).join("- " + evidence for evidence in item.expected_evidence)}
 
-Assigned documents:
-{"".join(docs_text)}
+Assigned document refs:
+{chr(10).join("- " + doc.id for doc in assigned_docs) or "none"}
+
+Retrieved source slices:
+{docs_text or "none"}
 
 Return JSON with this shape:
 {{
@@ -50,7 +130,7 @@ Return JSON with this shape:
 }}
 
 Rules:
-- Use only assigned documents.
+- Use only the provided source slices from the assigned document refs.
 - Do not write the final answer.
 - Keep excerpts short.
 - Do not invent sources.
@@ -72,13 +152,17 @@ def run_worker(
     assigned_docs = [
         docs_by_id[doc_id] for doc_id in item.assigned_refs if doc_id in docs_by_id
     ]
+    source_slices = select_source_slices(task, item, assigned_docs)
 
     trace.emit(
         stage="worker",
         event_type="worker_started",
         actor=worker_id,
         input_refs=item.assigned_refs,
-        metadata={"subquestion": item.subquestion},
+        metadata={
+            "subquestion": item.subquestion,
+            "source_slices": len(source_slices),
+        },
     )
 
     response = provider.complete(
@@ -88,7 +172,10 @@ def run_worker(
                 "role": "system",
                 "content": "You extract evidence. Return valid JSON only.",
             },
-            {"role": "user", "content": worker_prompt(task, item, assigned_docs)},
+            {
+                "role": "user",
+                "content": worker_prompt(task, item, assigned_docs, source_slices),
+            },
         ],
         temperature=0.1,
     )

@@ -9,30 +9,37 @@ from rxh.trace import TraceWriter
 from rxh.worker import run_worker, worker_prompt
 
 
-def test_worker_prompt_includes_subquestion_and_assigned_doc_content(
+def test_worker_prompt_includes_subquestion_and_bounded_source_slices(
     sample_task, tmp_path: Path
 ) -> None:
     doc_path = tmp_path / "doc1.md"
-    doc_path.write_text("Document body", encoding="utf-8")
+    doc_path.write_text(
+        "Overview section.\n\nTarget evidence about bounded execution.\n\n"
+        "Tail section.",
+        encoding="utf-8",
+    )
     doc = DocumentRef(
         id="doc_0001",
         source_path=str(doc_path),
         title="Doc1",
         content_hash="hash1",
-        char_count=len("Document body"),
+        char_count=len(doc_path.read_text(encoding="utf-8")),
     )
     item = PlanItem(
         id="item_001",
-        subquestion="What evidence is in this file?",
+        subquestion="What supports bounded execution?",
         assigned_refs=["doc_0001"],
-        expected_evidence=["A relevant excerpt"],
+        expected_evidence=["bounded execution"],
     )
+    source_slices = [(doc, 1, "Target evidence about bounded execution.")]
 
-    prompt = worker_prompt(sample_task, item, [doc])
+    prompt = worker_prompt(sample_task, item, [doc], source_slices)
 
     assert item.subquestion in prompt
-    assert "Document body" in prompt
-    assert "--- DOCUMENT doc_0001: Doc1 ---" in prompt
+    assert "Target evidence about bounded execution." in prompt
+    assert "--- SOURCE SLICE doc_0001#1: Doc1 ---" in prompt
+    assert "Assigned document refs:" in prompt
+    assert "Use only the provided source slices" in prompt
 
 
 def test_run_worker_returns_worker_result_and_emits_trace_events(
@@ -91,6 +98,8 @@ def test_run_worker_returns_worker_result_and_emits_trace_events(
     assert len(lines) == 2
     assert "worker_started" in lines[0]
     assert "worker_completed" in lines[1]
+    worker_prompt_text = provider.calls[0]["messages"][1]["content"]
+    assert "Retrieved source slices:" in worker_prompt_text
 
 
 def test_run_worker_handles_missing_doc_refs_gracefully(

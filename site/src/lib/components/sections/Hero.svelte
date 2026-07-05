@@ -5,7 +5,7 @@
 
 <p class="mt-8 text-slate-400 text-lg leading-relaxed max-w-3xl">
   Long-running AI agents should not stuff everything into growing context windows.
-  They should execute over document references, bounded subtasks, evidence stores,
-  and verification steps. This project <strong class="text-white">measures</strong>
+  They should execute over document references, bounded source slices, evidence
+  stores, verification, and policy steps. This project <strong class="text-white">measures</strong>
   whether that claim holds — and under what conditions it breaks.
 </p>

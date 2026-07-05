@@ -1,6 +1,8 @@
 import adapter from "@sveltejs/adapter-static";
 
 /** @type {import('@sveltejs/kit').Config} */
+const base = process.env.SITE_BASE_PATH ?? "";
+
 const config = {
   kit: {
     adapter: adapter({
@@ -10,7 +12,8 @@ const config = {
       precompress: false,
     }),
     paths: {
-      base: "/recursive-execution-harness-lab",
+      base,
+      assets: base,
     },
   },
 };

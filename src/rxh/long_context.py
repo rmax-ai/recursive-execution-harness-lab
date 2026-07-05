@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .ingest import load_document_text
 from .models import DocumentRef, Plan, TaskSpec
+from .policy import apply_policy_gate
 from .providers import LLMProvider
 from .trace import TraceWriter
 from .verifier import verify_answer
@@ -51,6 +52,7 @@ Return a complete answer with:
 
 def write_baseline_artifacts(task: TaskSpec, out_dir: Path) -> None:
     """Write empty baseline artifacts so both modes share the same output shape."""
+    del task
     plan = Plan(
         strategy="Long-context baseline: answer in one prompt without decomposition.",
         items=[],
@@ -122,10 +124,20 @@ def run_long_context(
     final_path.parent.mkdir(parents=True, exist_ok=True)
     final_path.write_text(response.text, encoding="utf-8")
 
-    verify_answer(
+    verification = verify_answer(
         final_answer=response.text,
         evidence_cards=[],
         source_documents=docs,
+        provider=provider,
+        model=verifier_model,
+        out_dir=out_dir,
+        trace=trace,
+    )
+
+    apply_policy_gate(
+        task=task,
+        final_answer=response.text,
+        verification=verification,
         provider=provider,
         model=verifier_model,
         out_dir=out_dir,
